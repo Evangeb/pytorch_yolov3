@@ -27,7 +27,7 @@ for line in file:
         key, value  = line.rsplit('=',1)
         
         layer[key] = value
-    layers.append(layer)
+layers.append(layer)
 
         
 
@@ -36,4 +36,6 @@ print(layers[0])
 for val in layers[0]:
     print(val,':',layers[0][val])
     
+
+print(len(layers))
 file.close()
