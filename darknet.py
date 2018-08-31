@@ -16,7 +16,33 @@ def get_test_input():
     img_ = torch.from_numpy(img_).float()
     img_ = Variable(img_)
     return img_
+
+class DetectionLayer(nn.Module):
+    '''
+    Yolo layer
+    '''
+    def __init__(self, anchors):
+        super(DetectionLayer, self).__init__()
+        self.anchors = anchors
+
+
+class EmptyLayer(nn.Module):
+    '''
+    Empty Layer for shortcut and routing layers.
+    '''
+    def __init__(self):
+        super(EmptyLayer, self).__init__()
+
+class MaxPoolStride1(nn.Module):
+    def __init__(self, kernel_size):
+        super(MaxPoolStride1, self).__init__()
+        self.kernel_size = kernel_size
+        self.pad = kernel_size - 1
     
+    def forward(self, x):
+        padded_x = F.pad(x, (0,self.pad,0,self.pad), mode="replicate")
+        pooled_x = nn.MaxPool2d(self.kernel_size, self.pad)(padded_x)
+        return pooled_x
 
 class Darknet(nn.Module):
     def __init__(self, cfgfile):
@@ -35,7 +61,7 @@ class Darknet(nn.Module):
             
             module_type = (module["type"])
     
-            if module_type == "convolutional" or module_type == "upsample":
+            if module_type == "convolutional" or module_type == "upsample" or module_type =="maxpool":
                 x = self.module_list[i](x)
                 
 
@@ -316,6 +342,16 @@ def create_modules(blocks):
             shortcut = EmptyLayer()
             module.add_module("shortcut_{}".format(index), shortcut)
 
+        elif x["type"] == "maxpool":
+            stride = int(x["stride"])
+            size = int(x["size"])
+            if stride != 1:
+                maxpool = nn.MaxPool2d(size, stride)
+            else:
+                maxpool = MaxPoolStride1(size)
+            
+            module.add_module("maxpool_{}".format(index), maxpool)
+
         elif x["type"] == "yolo":
             mask = x["mask"].split(",")
             mask = [int(x) for x in mask]
@@ -339,21 +375,8 @@ def create_modules(blocks):
 
     return (net_info, module_list)    
 
-class DetectionLayer(nn.Module):
-    '''
-    Yolo layer
-    '''
-    def __init__(self, anchors):
-        super(DetectionLayer, self).__init__()
-        self.anchors = anchors
 
 
-class EmptyLayer(nn.Module):
-    '''
-    Empty Layer for shortcut and routing layers.
-    '''
-    def __init__(self):
-        super(EmptyLayer, self).__init__()
 
 '''
 def main():

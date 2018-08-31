@@ -160,12 +160,12 @@ def main():
 
         with torch.no_grad():
             prediction = model(Variable(batch), CUDA)
-
-        prediction = write_results(prediction, confidence, num_classes, nms_conf = nms_thresh)
+        
+        prediction = write_results(prediction, confidence, num_classes, nms_conf = nms_thresh,NMS=True)
         
         end = time.time()
 
-        print(type(prediction))
+        
         if type(prediction) == int:
             
             for im_num, image in enumerate(imlist[i*batch_size: min((i +  1)*batch_size, len(imlist))]):
@@ -201,7 +201,7 @@ def main():
 
     im_dim_list = torch.index_select(im_dim_list, 0, output[:,0].long())
 
-    scaling_factor = torch.min(416/im_dim_list,1)[0].view(-1,1)
+    scaling_factor = torch.min(inp_dim/im_dim_list,1)[0].view(-1,1)
 
 
     output[:,[1,3]] -= (inp_dim - scaling_factor*im_dim_list[:,0].view(-1,1))/2
@@ -231,9 +231,9 @@ def main():
         label = "{0}".format(classes[cls])
         cv2.rectangle(img, c1, c2,color, 1)
         t_size = cv2.getTextSize(label, cv2.FONT_HERSHEY_PLAIN, 1 , 1)[0]
-        c2 = c1[0] + t_size[0] + 3, c1[1] + t_size[1] + 4
-        cv2.rectangle(img, c1, c2,color, -1)
-        cv2.putText(img, label, (c1[0], c1[1] + t_size[1] + 4), cv2.FONT_HERSHEY_PLAIN, 1, [225,255,255], 1);
+        #c2 = c1[0] + t_size[0] + 3, c1[1] + t_size[1] + 4
+        #cv2.rectangle(img, c1, c2,color, -1)
+        #cv2.putText(img, label, (c1[0], c1[1] + t_size[1] + 4), cv2.FONT_HERSHEY_PLAIN, 1, [225,255,255], 1);
         return img
 
     list(map(lambda x: write(x, loaded_ims), output))

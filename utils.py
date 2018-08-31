@@ -58,7 +58,7 @@ def predict_transform(prediction, inp_dim, anchors, num_classes, CUDA = True):
     return prediction
 
 
-def write_results(prediction, confidence, num_classes, nms_conf = 0.4):
+def write_results(prediction, confidence, num_classes, nms_conf = 0.4, NMS = True):
     
     #Find all rows where the objectness score is below the threshold
     conf_mask = (prediction[:,:,4] > confidence).float().unsqueeze(2)
@@ -97,55 +97,66 @@ def write_results(prediction, confidence, num_classes, nms_conf = 0.4):
         #as scalars are supported in PyTorch 0.4
         if image_pred_.shape[0] == 0:
             continue 
-          
-        img_classes = unique(image_pred_[:,-1]) 
 
-
-        for cls in img_classes:
-            #perform NMS
-
-            #Get all the detections from a given class
-
-            cls_mask = image_pred_*(image_pred_[:,-1] == cls).float().unsqueeze(1)
-            class_mask_ind = torch.nonzero(cls_mask[:,-2]).squeeze()
-            image_pred_class = image_pred_[class_mask_ind].view(-1,7)
-
-            #sort the detections so that the highest confidence score is at the top
-
-            conf_sort_index = torch.sort(image_pred_class[:,4], descending = True )[1]
-
-            image_pred_class = image_pred_class[conf_sort_index]
-            idx = image_pred_class.size(0) #number of detections
-
-            for i in range(idx):
-                #Get the IOUS of all boxes that come after the one with max score.
-                try:
-                    ious = bbox_iou(image_pred_class[i].unsqueeze(0), image_pred_class[i+1:])
-                except ValueError:
-                    break
-
-                except IndexError:
-                    break
-
-                #Zero out detections that have IoU > threshold
-                iou_mask = (ious < nms_conf).float().unsqueeze(1)
-                image_pred_class[i+1:] *= iou_mask
         
-                #Remove the non-zero entries
-                non_zero_ind = torch.nonzero(image_pred_class[:,4]).squeeze()
-                image_pred_class = image_pred_class[non_zero_ind].view(-1,7)
+        if NMS == True:
+            img_classes = unique(image_pred_[:,-1]) 
 
-            batch_ind = image_pred_class.new(image_pred_class.size(0), 1).fill_(ind)
-            #Repeat the batch_id for as many detections of the class in the iamge
-            seq = batch_ind, image_pred_class
 
+            for cls in img_classes:
+                #perform NMS
+
+                #Get all the detections from a given class
+
+                cls_mask = image_pred_*(image_pred_[:,-1] == cls).float().unsqueeze(1)
+                class_mask_ind = torch.nonzero(cls_mask[:,-2]).squeeze()
+                image_pred_class = image_pred_[class_mask_ind].view(-1,7)
+
+                #sort the detections so that the highest confidence score is at the top
+
+                conf_sort_index = torch.sort(image_pred_class[:,4], descending = True )[1]
+
+                image_pred_class = image_pred_class[conf_sort_index]
+                idx = image_pred_class.size(0) #number of detections
+
+                for i in range(idx):
+                    #Get the IOUS of all boxes that come after the one with max score.
+                    try:
+                        ious = bbox_iou(image_pred_class[i].unsqueeze(0), image_pred_class[i+1:])
+                    except ValueError:
+                        break
+
+                    except IndexError:
+                        break
+
+                    #Zero out detections that have IoU > threshold
+                    iou_mask = (ious < nms_conf).float().unsqueeze(1)
+                    image_pred_class[i+1:] *= iou_mask
+            
+                    #Remove the non-zero entries
+                    non_zero_ind = torch.nonzero(image_pred_class[:,4]).squeeze()
+                    image_pred_class = image_pred_class[non_zero_ind].view(-1,7)
+
+                batch_ind = image_pred_class.new(image_pred_class.size(0), 1).fill_(ind)
+                #Repeat the batch_id for as many detections of the class in the iamge
+                seq = batch_ind, image_pred_class
+
+                if not write:
+                    output = torch.cat(seq,1)
+                    write = True
+                else:
+                    out = torch.cat(seq,1)
+                    output = torch.cat((output,out))
+        """
+        else:
             if not write:
-                output = torch.cat(seq,1)
+                output = torch.cat(image_pred_,1)
                 write = True
             else:
-                out = torch.cat(seq,1)
-                output = torch.cat((output,out))
-
+                out = torch.cat(image_pred_,1)
+                output= torch.cat((output,out))
+        """
+    
     try:
         return output
     except:
